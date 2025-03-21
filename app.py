@@ -28,7 +28,8 @@ authenticator = stauth.Authenticate(
 )
 
 # ✅ Localização do formulário de login corrigida para "main"
-name, authentication_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login")
+
 
 if authentication_status == False:
     st.error("❌ Usuário ou senha incorretos")
