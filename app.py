@@ -180,11 +180,18 @@ if st.session_state.get("logado"):
                 ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
                 st.pyplot(fig_tipo)
 
-            with aba8:
-                st.subheader("🗓️ Mapa de Calor por Dia da Semana")
-                mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
-                mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
-                st.dataframe(mapa_pivot.style.background_gradient(cmap="YlOrRd"))
+            from matplotlib.colors import LinearSegmentedColormap
+
+with aba8:
+    st.subheader("🗓️ Mapa de Calor por Dia da Semana")
+    mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
+    mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
+
+    # Criar colormap customizado verde (a partir de #00665B)
+    verde_custom = LinearSegmentedColormap.from_list("verde_custom", ["#e5f9f6", "#b2e5db", "#4cbba7", "#00665B"])
+
+    st.dataframe(mapa_pivot.style.background_gradient(cmap=verde_custom, axis=None))
+
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
