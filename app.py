@@ -27,7 +27,8 @@ authenticator = stauth.Authenticate(
 )
 
 # ✅ LOGIN - CORRIGIDO
-name, authentication_status, username = authenticator.login("Login", location="main")
+name, authentication_status, username = authenticator.login("Login", "main")
+
 
 if authentication_status == False:
     st.error("❌ Usuário ou senha incorretos")
