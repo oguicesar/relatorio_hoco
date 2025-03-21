@@ -6,3 +6,4 @@ streamlit-authenticator
 PyYAML
 streamlit-authenticator==0.2.2
 matplotlib.colors
+plotly
