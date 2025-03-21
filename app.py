@@ -2,63 +2,78 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import streamlit_authenticator as stauth
+import bcrypt
+import os
 
-# === LOGIN CONFIG ===
-names = ['Admin User', 'Gestor HOCO']
-usernames = ['admin', 'gestor']
-hashed_passwords = [
-    "$2b$12$yVN6yPYQX2d8O8mD3cbYHOpA01Rok3IRqPuqDgUTaBe8/EpNmrVqO",  # admin
-    "$2b$12$yVN6yPYQX2d8O8mD3cbYHOpA01Rok3IRqPuqDgUTaBe8/EpNmrVqO"   # gestor
-]
+# =========================
+USER_FILE = "usuarios.csv"
+# =========================
 
+def carregar_usuarios():
+    if os.path.exists(USER_FILE):
+        return pd.read_csv(USER_FILE)
+    else:
+        return pd.DataFrame(columns=["username", "name", "hashed_password"])
 
-credentials = {
-    "usernames": {
-        usernames[0]: {"name": names[0], "password": hashed_passwords[0]},
-        usernames[1]: {"name": names[1], "password": hashed_passwords[1]},
-    }
-}
+def salvar_usuarios(df):
+    df.to_csv(USER_FILE, index=False)
 
-authenticator = stauth.Authenticate(
-    credentials,
-    "dashboard_hoco_cookie",
-    "random_signature_key",
-    cookie_expiry_days=1
-)
+def autenticar(username, senha, df_usuarios):
+    user = df_usuarios[df_usuarios["username"] == username]
+    if not user.empty:
+        hashed = user.iloc[0]["hashed_password"]
+        return bcrypt.checkpw(senha.encode(), hashed.encode()), user.iloc[0]["name"]
+    return False, None
 
-# ✅ LOGIN - CORRIGIDO
-name, authentication_status, username = authenticator.login("Login", "main")
+st.set_page_config("Dashboard HOCO", layout="wide")
 
+# === CONTROLE DE SESSÃO
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
 
-if authentication_status == False:
-    st.error("❌ Usuário ou senha incorretos")
+if not st.session_state["logado"]:
+    st.title("🔐 Acesso ao Dashboard HOCO")
 
-if authentication_status == None:
-    st.warning("👋 Faça login para acessar o dashboard.")
+    aba_login, aba_cadastro = st.tabs(["🔑 Já tenho cadastro", "📝 Quero me cadastrar"])
+    df_usuarios = carregar_usuarios()
 
-if authentication_status:
-    authenticator.logout("Logout", "sidebar")
-    st.sidebar.success(f"👤 Bem-vindo, {name}!")
+    with aba_login:
+        st.subheader("Login")
+        login_user = st.text_input("Usuário")
+        login_senha = st.text_input("Senha", type="password")
+        if st.button("Entrar"):
+            ok, nome = autenticar(login_user, login_senha, df_usuarios)
+            if ok:
+                st.session_state["logado"] = True
+                st.session_state["usuario"] = login_user
+                st.session_state["nome"] = nome
+                st.experimental_rerun()
+            else:
+                st.error("Usuário ou senha incorretos.")
 
-    st.set_page_config(page_title="Dashboard HOCO", layout="wide")
-    st.title("📊 Dashboard de Faturamento - Simulação")
+    with aba_cadastro:
+        st.subheader("Cadastro")
+        new_name = st.text_input("Seu nome completo")
+        new_user = st.text_input("Novo nome de usuário")
+        new_pass = st.text_input("Nova senha", type="password")
+        if st.button("Cadastrar"):
+            if new_user in df_usuarios["username"].values:
+                st.warning("⚠️ Usuário já existe.")
+            elif not new_name or not new_user or not new_pass:
+                st.warning("Preencha todos os campos.")
+            else:
+                hashed = bcrypt.hashpw(new_pass.encode(), bcrypt.gensalt()).decode()
+                novo = pd.DataFrame([[new_user, new_name, hashed]], columns=df_usuarios.columns)
+                df_usuarios = pd.concat([df_usuarios, novo], ignore_index=True)
+                salvar_usuarios(df_usuarios)
+                st.success("✅ Cadastro realizado com sucesso!")
+                st.download_button("⬇ Baixar novo arquivo de usuários", df_usuarios.to_csv(index=False), file_name="usuarios.csv")
 
-    st.markdown("""
-    Faça o upload do arquivo `.csv` com as seguintes colunas:
+# === SEÇÃO DO DASHBOARD ===
+if st.session_state.get("logado"):
+    st.sidebar.success(f"👤 Bem-vindo, {st.session_state['nome']}!")
 
-    - Número
-    - Paciente
-    - Categoria
-    - Médico
-    - Atendimento
-    - Valor Unitário
-    - Data de realização
-    - Dia da semana
-    - Mês
-    - Ano
-    - Unidade da Clínica
-    """)
+    st.title("📊 Dashboard de Faturamento - HOCO")
 
     uploaded_file = st.file_uploader("📂 Upload do arquivo .csv", type=["csv"])
 
@@ -74,6 +89,7 @@ if authentication_status:
 
             df["Valor Unitário"] = pd.to_numeric(df["Valor Unitário"], errors="coerce")
             df.dropna(subset=["Valor Unitário"], inplace=True)
+            df["Ano-Mês"] = pd.to_datetime(df["Ano"].astype(str) + "-" + df["Mês"].astype(str) + "-01")
 
             st.sidebar.header("🎯 Filtros")
             anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].unique()), default=sorted(df["Ano"].unique()))
@@ -92,8 +108,7 @@ if authentication_status:
                 (df["Categoria"].isin(planos))
             ]
 
-            df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
-
+            # Abas do dashboard
             aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
                 "📊 Visão Geral",
                 "👨‍⚕️ Médicos",
@@ -105,11 +120,7 @@ if authentication_status:
 
             with aba1:
                 st.header("📊 Visão Geral")
-
                 faturamento_total = df_filtrado["Valor Unitário"].sum()
-                particular_total = df_filtrado[df_filtrado["Categoria"].str.upper() == "PARTICULAR"]["Valor Unitário"].sum()
-                perc_particular = (particular_total / faturamento_total * 100) if faturamento_total > 0 else 0
-
                 ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
                 pacientes_unicos = df_filtrado["Paciente"].nunique()
                 total_atendimentos = len(df_filtrado)
@@ -124,13 +135,6 @@ if authentication_status:
 
             with aba2:
                 st.header("👨‍⚕️ Análises por Médico")
-
-                ticket_medio_medico = df_filtrado.groupby("Médico")["Valor Unitário"].mean().reset_index().sort_values(by="Valor Unitário", ascending=False)
-                fig_tm, ax_tm = plt.subplots(figsize=(10, 5))
-                sns.barplot(data=ticket_medio_medico, y="Médico", x="Valor Unitário", ax=ax_tm, palette="viridis")
-                ax_tm.set_xlabel("Ticket Médio (R$)")
-                st.pyplot(fig_tm)
-
                 fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
                 fig1, ax1 = plt.subplots(figsize=(10, 5))
                 sns.barplot(y="Médico", x="Valor Unitário", data=fat_medico, ax=ax1)
@@ -139,99 +143,42 @@ if authentication_status:
 
             with aba3:
                 st.header("💳 Análises por Plano")
-
-                faturamento_categoria = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
-                faturamento_categoria["%"] = (faturamento_categoria["Valor Unitário"] / faturamento_total) * 100
-                faturamento_categoria = faturamento_categoria.sort_values(by="Valor Unitário", ascending=False)
-
-                st.dataframe(faturamento_categoria.style.format({"Valor Unitário": "R$ {:,.2f}", "%": "{:.1f}%"}))
-
+                fat_plano = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
                 fig2, ax2 = plt.subplots(figsize=(10, 5))
-                sns.barplot(y="Categoria", x="Valor Unitário", data=faturamento_categoria, ax=ax2)
+                sns.barplot(y="Categoria", x="Valor Unitário", data=fat_plano, ax=ax2)
                 ax2.set_xlabel("Faturamento (R$)")
                 st.pyplot(fig2)
 
             with aba4:
                 st.header("🏢 Análises por Unidade")
-
-                fat_unidade = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
-                fig_u, ax_u = plt.subplots(figsize=(10, 4))
-                sns.barplot(y="Unidade da Clínica", x="Valor Unitário", data=fat_unidade, ax=ax_u)
-                st.pyplot(fig_u)
+                fat_uni = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
+                fig3, ax3 = plt.subplots(figsize=(10, 5))
+                sns.barplot(y="Unidade da Clínica", x="Valor Unitário", data=fat_uni, ax=ax3)
+                ax3.set_xlabel("Faturamento (R$)")
+                st.pyplot(fig3)
 
             with aba5:
                 st.header("📈 Tendência Temporal")
-
-                evolucao_total = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
-                fig_ev, ax_ev = plt.subplots(figsize=(10, 4))
-                sns.lineplot(data=evolucao_total, x="Ano-Mês", y="Valor Unitário", marker="o", ax=ax_ev)
-                ax_ev.set_title("Faturamento Total por Mês")
-                st.pyplot(fig_ev)
-
-                st.subheader("👨‍⚕️ Top 5 Médicos - Evolução Mensal")
-                top5_medicos = df_filtrado.groupby("Médico")["Valor Unitário"].sum().sort_values(ascending=False).head(5).index
-                df_top5 = df_filtrado[df_filtrado["Médico"].isin(top5_medicos)]
-                evolucao_medicos = df_top5.groupby(["Ano-Mês", "Médico"])["Valor Unitário"].sum().reset_index()
-                fig_ev2, ax_ev2 = plt.subplots(figsize=(12, 5))
-                sns.lineplot(data=evolucao_medicos, x="Ano-Mês", y="Valor Unitário", hue="Médico", marker="o", ax=ax_ev2)
-                st.pyplot(fig_ev2)
-
-                st.subheader("💳 Evolução por Plano")
-                evolucao_plano = df_filtrado.groupby(["Ano-Mês", "Categoria"])["Valor Unitário"].sum().reset_index()
-                fig_ev3, ax_ev3 = plt.subplots(figsize=(12, 5))
-                sns.lineplot(data=evolucao_plano, x="Ano-Mês", y="Valor Unitário", hue="Categoria", marker="o", ax=ax_ev3)
-                st.pyplot(fig_ev3)
-
-                st.subheader("🏢 Evolução por Unidade")
-                evolucao_unidade = df_filtrado.groupby(["Ano-Mês", "Unidade da Clínica"])["Valor Unitário"].sum().reset_index()
-                fig_ev4, ax_ev4 = plt.subplots(figsize=(12, 5))
-                sns.lineplot(data=evolucao_unidade, x="Ano-Mês", y="Valor Unitário", hue="Unidade da Clínica", marker="o", ax=ax_ev4)
-                st.pyplot(fig_ev4)
-
-                st.subheader("🚨 Alerta de Variação Recente")
-                ultimos_meses = evolucao_total.sort_values(by="Ano-Mês").tail(2)
-                if len(ultimos_meses) == 2:
-                    val_1 = ultimos_meses.iloc[0]["Valor Unitário"]
-                    val_2 = ultimos_meses.iloc[1]["Valor Unitário"]
-                    delta = val_2 - val_1
-                    perc = (delta / val_1 * 100) if val_1 > 0 else 0
-                    if perc >= 10:
-                        st.success(f"📈 Crescimento de {perc:.1f}% no faturamento em relação ao mês anterior.")
-                    elif perc <= -10:
-                        st.error(f"📉 Queda de {abs(perc):.1f}% no faturamento em relação ao mês anterior.")
-                    else:
-                        st.info(f"⚖️ Estabilidade: variação de {perc:.1f}% no último mês.")
+                evolucao = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
+                fig4, ax4 = plt.subplots(figsize=(12, 4))
+                sns.lineplot(x="Ano-Mês", y="Valor Unitário", data=evolucao, marker="o", ax=ax4)
+                ax4.set_title("Evolução do Faturamento Mensal")
+                st.pyplot(fig4)
 
             with aba6:
-                st.header("📋 Resumo Executivo por Médico")
-
+                st.header("📋 Resumo Executivo")
                 resumo = df_filtrado.groupby("Médico").agg({
                     "Paciente": "count",
                     "Valor Unitário": ["mean", "sum"]
                 }).reset_index()
                 resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
-                resumo = resumo.sort_values(by="Faturamento Total", ascending=False)
-
                 st.dataframe(resumo.style.format({
                     "Ticket Médio": "R$ {:,.2f}",
                     "Faturamento Total": "R$ {:,.2f}"
                 }))
 
-                st.subheader("🔁 Frequência de Pacientes")
-                paciente_freq = df_filtrado["Paciente"].value_counts().reset_index()
-                paciente_freq.columns = ["Paciente", "Qtd de Atendimentos"]
-                top_pacientes = paciente_freq.head(10)
-                st.markdown("**👥 Top 10 Pacientes Mais Frequentes**")
-                st.dataframe(top_pacientes)
-
-                media_atend_por_paciente = paciente_freq["Qtd de Atendimentos"].mean()
-                st.metric("📊 Média de Atendimentos por Paciente", f"{media_atend_por_paciente:.2f}")
-
-                atend_por_medico = df_filtrado.groupby("Médico")["Paciente"].count()
-                media_por_medico = atend_por_medico.mean()
-                st.metric("👨‍⚕️ Média de Atendimentos por Médico", f"{media_por_medico:.2f}")
-
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
     else:
-        st.warning("👆 Faça upload de um arquivo .csv com a estrutura correta.")
+        st.warning("👆 Faça upload de um arquivo .csv com os dados do faturamento.")
+
