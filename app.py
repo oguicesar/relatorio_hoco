@@ -2,87 +2,98 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import unicodedata
 
 st.set_page_config(page_title="Dashboard HOCO", layout="wide")
-st.title("📊 Dashboard de Faturamento - HOCO")
+st.title("📊 Dashboard de Faturamento - Simulação")
 
 st.markdown("""
-Faça o upload da base de dados **.csv** gerada pelo sistema do HOCO.
+Faça o upload do arquivo `.csv` com as seguintes colunas:
 
-- O dashboard irá carregar automaticamente os dados
-- Você poderá filtrar por **ano**, **mês**, **procedimento**, **clínica**, **médico** ou **plano**
+- Número
+- Paciente
+- Categoria (Plano)
+- Médico
+- Atendimento (Consulta, Exame ou Procedimento)
+- Valor Unitário
+- Data de realização
+- Dia da semana
+- Mês
+- Ano
+- Unidade da Clínica
 """)
 
-uploaded_file = st.file_uploader("📂 Upload do arquivo CSV", type=["csv"])
+uploaded_file = st.file_uploader("📂 Upload do arquivo .csv", type=["csv"])
 
 if uploaded_file:
     try:
-        # Lê o arquivo corrigindo possíveis problemas de encoding e delimitador
-        df = pd.read_csv(uploaded_file, encoding='latin1', sep=None, engine='python')
+        df = pd.read_csv(
+            uploaded_file,
+            encoding="latin1",
+            sep=";",
+            on_bad_lines="skip",  # Ignora linhas com erro
+            engine="python"
+        )
 
-        # Normalizar nomes das colunas
-        def normalizar_coluna(col):
-            col = unicodedata.normalize("NFKD", col).encode("ascii", "ignore").decode("utf-8")
-            return col.strip().lower().replace(" ", "_")
+        # Conversão de dados
+        df["Valor Unitário"] = pd.to_numeric(df["Valor Unitário"], errors="coerce")
+        df.dropna(subset=["Valor Unitário"], inplace=True)
 
-        df.columns = [normalizar_coluna(c) for c in df.columns]
+        # Sidebar - Filtros
+        st.sidebar.header("🎯 Filtros")
+        anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].unique()), default=sorted(df["Ano"].unique()))
+        meses = st.sidebar.multiselect("Mês", sorted(df["Mês"].unique()), default=sorted(df["Mês"].unique()))
+        medicos = st.sidebar.multiselect("Médico", df["Médico"].unique(), default=df["Médico"].unique())
+        unidades = st.sidebar.multiselect("Unidade da Clínica", df["Unidade da Clínica"].unique(), default=df["Unidade da Clínica"].unique())
+        atendimentos = st.sidebar.multiselect("Atendimento", df["Atendimento"].unique(), default=df["Atendimento"].unique())
+        planos = st.sidebar.multiselect("Categoria", df["Categoria"].unique(), default=df["Categoria"].unique())
 
-        # Verifica se colunas essenciais estão presentes
-        colunas_obrigatorias = {"medico", "plano", "valor", "tipo_procedimento", "mes", "ano", "clinica"}
-        if not colunas_obrigatorias.issubset(set(df.columns)):
-            st.error(f"❌ Colunas obrigatórias ausentes: {colunas_obrigatorias - set(df.columns)}")
-        else:
-            df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
-            df.dropna(subset=["valor"], inplace=True)
+        # Aplicar filtros
+        df_filtrado = df[
+            (df["Ano"].isin(anos)) &
+            (df["Mês"].isin(meses)) &
+            (df["Médico"].isin(medicos)) &
+            (df["Unidade da Clínica"].isin(unidades)) &
+            (df["Atendimento"].isin(atendimentos)) &
+            (df["Categoria"].isin(planos))
+        ]
 
-            # Filtros dinâmicos
-            st.sidebar.header("🎯 Filtros")
+        # KPIs
+        faturamento_total = df_filtrado["Valor Unitário"].sum()
+        particular_total = df_filtrado[df_filtrado["Categoria"].str.upper() == "PARTICULAR"]["Valor Unitário"].sum()
+        perc_particular = (particular_total / faturamento_total * 100) if faturamento_total > 0 else 0
 
-            ano = st.sidebar.multiselect("Ano", sorted(df["ano"].dropna().unique()), default=sorted(df["ano"].dropna().unique()))
-            mes = st.sidebar.multiselect("Mês", sorted(df["mes"].dropna().unique()), default=sorted(df["mes"].dropna().unique()))
-            clinica = st.sidebar.multiselect("Clínica", df["clinica"].dropna().unique(), default=df["clinica"].dropna().unique())
-            procedimento = st.sidebar.multiselect("Tipo de Procedimento", df["tipo_procedimento"].dropna().unique(), default=df["tipo_procedimento"].dropna().unique())
-            plano = st.sidebar.multiselect("Plano", df["plano"].dropna().unique(), default=df["plano"].dropna().unique())
+        col1, col2 = st.columns(2)
+        col1.metric("💰 Faturamento Total", f"R$ {faturamento_total:,.2f}")
+        col2.metric("🏥 Particular vs Convênios", f"{perc_particular:.1f}% / {100 - perc_particular:.1f}%")
 
-            df_filtros = df[
-                df["ano"].isin(ano) &
-                df["mes"].isin(mes) &
-                df["clinica"].isin(clinica) &
-                df["tipo_procedimento"].isin(procedimento) &
-                df["plano"].isin(plano)
-            ]
+        st.subheader("📊 Dados Filtrados")
+        st.dataframe(df_filtrado.head(100))
 
-            st.subheader("📊 Dados Filtrados")
-            st.dataframe(df_filtros)
+        # Faturamento por Médico
+        st.subheader("👨‍⚕️ Faturamento por Médico")
+        fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        sns.barplot(y="Médico", x="Valor Unitário", data=fat_medico, ax=ax1)
+        ax1.set_xlabel("Faturamento (R$)")
+        st.pyplot(fig1)
 
-            faturamento_total = df_filtros["valor"].sum()
-            faturamento_medico = df_filtros.groupby("medico")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
-            faturamento_plano = df_filtros.groupby("plano")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
+        # Faturamento por Plano
+        st.subheader("📋 Faturamento por Categoria (Plano)")
+        fat_plano = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        sns.barplot(y="Categoria", x="Valor Unitário", data=fat_plano, ax=ax2)
+        ax2.set_xlabel("Faturamento (R$)")
+        st.pyplot(fig2)
 
-            particular = faturamento_plano[faturamento_plano["plano"].str.upper() == "PARTICULAR"]["valor"].sum()
-            perc_particular = (particular / faturamento_total) * 100 if faturamento_total > 0 else 0
-            perc_convenio = 100 - perc_particular
-
-            col1, col2 = st.columns(2)
-            col1.metric("💰 Faturamento Total", f"R$ {faturamento_total:,.2f}")
-            col2.metric("🏥 Particular vs Convênios", f"{perc_particular:.1f}% | {perc_convenio:.1f}%")
-
-            # Gráfico por médico
-            st.subheader("👨‍⚕️ Faturamento por Médico")
-            fig1, ax1 = plt.subplots(figsize=(10, 5))
-            sns.barplot(y="medico", x="valor", data=faturamento_medico, ax=ax1)
-            ax1.set_xlabel("Faturamento (R$)")
-            st.pyplot(fig1)
-
-            # Gráfico por plano
-            st.subheader("📋 Faturamento por Plano")
-            fig2, ax2 = plt.subplots(figsize=(10, 5))
-            sns.barplot(y="plano", x="valor", data=faturamento_plano, ax=ax2)
-            ax2.set_xlabel("Faturamento (R$)")
-            st.pyplot(fig2)
+        # Faturamento por Tipo de Atendimento
+        st.subheader("🩺 Faturamento por Tipo de Atendimento")
+        fat_atendimento = df_filtrado.groupby("Atendimento")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
+        fig3, ax3 = plt.subplots(figsize=(10, 5))
+        sns.barplot(y="Atendimento", x="Valor Unitário", data=fat_atendimento, ax=ax3)
+        ax3.set_xlabel("Faturamento (R$)")
+        st.pyplot(fig3)
 
     except Exception as e:
         st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
-    st.warning("👆 Faça upload de um arquivo .csv extraído do sistema HOCO.")
+    st.warning("👆 Faça upload de um arquivo .csv gerado com as colunas indicadas.")
