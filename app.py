@@ -7,9 +7,8 @@ import os
 
 st.set_page_config("Dashboard HOCO", layout="wide")
 
-# =====================
+# ========= Usuários =========
 USER_FILE = "usuarios.csv"
-# =====================
 
 def carregar_usuarios():
     if os.path.exists(USER_FILE):
@@ -27,18 +26,17 @@ def autenticar(username, senha, df_usuarios):
         return bcrypt.checkpw(senha.encode(), hashed.encode()), user.iloc[0]["name"]
     return False, None
 
-# === CONTROLE DE SESSÃO
+# ========= Sessão =========
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
-# === TELA DE LOGIN / CADASTRO
+# ========= Login / Cadastro =========
 if not st.session_state["logado"]:
     st.title("🔐 Acesso ao Dashboard HOCO")
     aba_login, aba_cadastro = st.tabs(["🔑 Já tenho cadastro", "📝 Quero me cadastrar"])
     df_usuarios = carregar_usuarios()
 
     with aba_login:
-        st.subheader("Login")
         login_user = st.text_input("Usuário")
         login_senha = st.text_input("Senha", type="password")
         if st.button("Entrar"):
@@ -48,12 +46,11 @@ if not st.session_state["logado"]:
                 st.session_state["usuario"] = login_user
                 st.session_state["nome"] = nome
                 st.success(f"✅ Login realizado com sucesso! Bem-vindo, {nome}.")
-                st.stop()  # Corrige o problema do experimental_rerun
+                st.stop()
             else:
                 st.error("❌ Usuário ou senha incorretos.")
 
     with aba_cadastro:
-        st.subheader("Cadastro")
         new_name = st.text_input("Seu nome completo")
         new_user = st.text_input("Novo nome de usuário")
         new_pass = st.text_input("Nova senha", type="password")
@@ -71,7 +68,7 @@ if not st.session_state["logado"]:
                 st.download_button("⬇ Baixar novo arquivo de usuários", df_usuarios.to_csv(index=False), file_name="usuarios.csv")
                 st.stop()
 
-# === DASHBOARD ===
+# ========= Dashboard =========
 if st.session_state.get("logado"):
     st.sidebar.success(f"👤 Bem-vindo, {st.session_state['nome']}!")
 
@@ -80,17 +77,13 @@ if st.session_state.get("logado"):
 
     if uploaded_file:
         try:
-            df = pd.read_csv(
-                uploaded_file,
-                encoding="latin1",
-                sep=";",
-                on_bad_lines="skip",
-                engine="python"
-            )
-
+            df = pd.read_csv(uploaded_file, encoding="latin1", sep=";", on_bad_lines="skip", engine="python")
             df["Valor Unitário"] = pd.to_numeric(df["Valor Unitário"], errors="coerce")
             df.dropna(subset=["Valor Unitário"], inplace=True)
-            df["Ano-Mês"] = pd.to_datetime(df["Ano"].astype(str) + "-" + df["Mês"].astype(str) + "-01")
+
+            df["Data de realização"] = pd.to_datetime(df["Data de realização"], errors="coerce")
+            df["Ano-Mês"] = df["Data de realização"].dt.to_period("M").astype(str)
+            df["Dia da semana"] = df["Data de realização"].dt.day_name()
 
             st.sidebar.header("🎯 Filtros")
             anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].unique()), default=sorted(df["Ano"].unique()))
@@ -109,13 +102,15 @@ if st.session_state.get("logado"):
                 (df["Categoria"].isin(planos))
             ]
 
-            aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
+            aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8 = st.tabs([
                 "📊 Visão Geral",
                 "👨‍⚕️ Médicos",
                 "💳 Planos",
                 "🏢 Unidades",
                 "📈 Tendência Temporal",
-                "📋 Resumo Executivo"
+                "📋 Resumo Executivo",
+                "📈 Evolução por Tipo de Atendimento",
+                "🗓️ Mapa de Calor por Dia"
             ])
 
             with aba1:
@@ -177,26 +172,6 @@ if st.session_state.get("logado"):
                     "Faturamento Total": "R$ {:,.2f}"
                 }))
 
-        except Exception as e:
-            st.error(f"❌ Erro ao processar o arquivo: {e}")
-    else:
-        st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
-
-            with aba6:
-                st.header("📋 Resumo Executivo")
-                resumo = df_filtrado.groupby("Médico").agg({
-                    "Paciente": "count",
-                    "Valor Unitário": ["mean", "sum"]
-                }).reset_index()
-                resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
-                st.dataframe(resumo.style.format({
-                    "Ticket Médio": "R$ {:,.2f}",
-                    "Faturamento Total": "R$ {:,.2f}"
-                }))
-
-# NOVAS ABAS
-            aba7, aba8 = st.tabs(["📈 Evolução por Tipo de Atendimento", "🗓️ Mapa de Calor por Dia"])
-
             with aba7:
                 st.subheader("📈 Evolução por Tipo de Atendimento")
                 evolucao_tipo = df_filtrado.groupby(["Ano-Mês", "Atendimento"])["Valor Unitário"].sum().reset_index()
@@ -207,10 +182,11 @@ if st.session_state.get("logado"):
 
             with aba8:
                 st.subheader("🗓️ Mapa de Calor por Dia da Semana")
-                df_filtrado["Data de realização"] = pd.to_datetime(df_filtrado["Data de realização"], errors="coerce")
-                df_filtrado["Dia da semana"] = df_filtrado["Data de realização"].dt.day_name()
                 mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
                 mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
-
                 st.dataframe(mapa_pivot.style.background_gradient(cmap="YlOrRd"))
 
+        except Exception as e:
+            st.error(f"❌ Erro ao processar o arquivo: {e}")
+    else:
+        st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
