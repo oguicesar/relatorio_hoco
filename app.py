@@ -181,3 +181,36 @@ if st.session_state.get("logado"):
             st.error(f"❌ Erro ao processar o arquivo: {e}")
     else:
         st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
+
+            with aba6:
+                st.header("📋 Resumo Executivo")
+                resumo = df_filtrado.groupby("Médico").agg({
+                    "Paciente": "count",
+                    "Valor Unitário": ["mean", "sum"]
+                }).reset_index()
+                resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
+                st.dataframe(resumo.style.format({
+                    "Ticket Médio": "R$ {:,.2f}",
+                    "Faturamento Total": "R$ {:,.2f}"
+                }))
+
+# NOVAS ABAS
+            aba7, aba8 = st.tabs(["📈 Evolução por Tipo de Atendimento", "🗓️ Mapa de Calor por Dia"])
+
+            with aba7:
+                st.subheader("📈 Evolução por Tipo de Atendimento")
+                evolucao_tipo = df_filtrado.groupby(["Ano-Mês", "Atendimento"])["Valor Unitário"].sum().reset_index()
+                fig_tipo, ax_tipo = plt.subplots(figsize=(12, 5))
+                sns.lineplot(data=evolucao_tipo, x="Ano-Mês", y="Valor Unitário", hue="Atendimento", marker="o", ax=ax_tipo)
+                ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
+                st.pyplot(fig_tipo)
+
+            with aba8:
+                st.subheader("🗓️ Mapa de Calor por Dia da Semana")
+                df_filtrado["Data de realização"] = pd.to_datetime(df_filtrado["Data de realização"], errors="coerce")
+                df_filtrado["Dia da semana"] = df_filtrado["Data de realização"].dt.day_name()
+                mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
+                mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
+
+                st.dataframe(mapa_pivot.style.background_gradient(cmap="YlOrRd"))
+
