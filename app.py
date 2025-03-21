@@ -7,7 +7,6 @@ import streamlit_authenticator as stauth
 # === LOGIN CONFIG ===
 names = ['Admin User', 'Gestor HOCO']
 usernames = ['admin', 'gestor']
-# Hash da senha '123'
 hashed_passwords = [
     "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",
     "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"
@@ -27,9 +26,8 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-# ✅ Localização do formulário de login corrigida para "main"
-name, authentication_status, username = authenticator.login("Login")
-
+# ✅ LOGIN - CORRIGIDO
+name, authentication_status, username = authenticator.login("Login", location="main")
 
 if authentication_status == False:
     st.error("❌ Usuário ou senha incorretos")
@@ -37,7 +35,6 @@ if authentication_status == False:
 if authentication_status == None:
     st.warning("👋 Faça login para acessar o dashboard.")
 
-# ==== APÓS LOGIN VALIDADO ====
 if authentication_status:
     authenticator.logout("Logout", "sidebar")
     st.sidebar.success(f"👤 Bem-vindo, {name}!")
