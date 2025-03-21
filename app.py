@@ -9,11 +9,11 @@ from yaml.loader import SafeLoader
 # ==== LOGIN (Controle de Acesso) ====
 names = ['Admin User', 'Gestor HOCO']
 usernames = ['admin', 'gestor']
+# Hash da senha '123' pré-gerado
 hashed_passwords = [
-    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",  # hash de '123'
-    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"   # hash de '123'
+    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",
+    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"
 ]
-
 
 credentials = {
     "usernames": {
@@ -29,7 +29,8 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+# Alteramos a localização para "sidebar" para evitar o erro.
+name, authentication_status, username = authenticator.login("Login", "sidebar")
 
 if authentication_status == False:
     st.error("❌ Usuário ou senha incorretos")
@@ -47,8 +48,18 @@ if authentication_status:
 
     st.markdown("""
     Faça o upload do arquivo `.csv` com as seguintes colunas:
-    Número, Paciente, Categoria, Médico, Atendimento, Valor Unitário, 
-    Data de realização, Dia da semana, Mês, Ano, Unidade da Clínica
+    
+    - Número
+    - Paciente
+    - Categoria (Plano)
+    - Médico
+    - Atendimento (Consulta, Exame ou Procedimento)
+    - Valor Unitário
+    - Data de realização
+    - Dia da semana
+    - Mês
+    - Ano
+    - Unidade da Clínica
     """)
 
     uploaded_file = st.file_uploader("📂 Upload do arquivo .csv", type=["csv"])
@@ -86,7 +97,7 @@ if authentication_status:
             ]
             df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
 
-            # Abas
+            # Criar abas
             aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
                 "📊 Visão Geral", 
                 "👨‍⚕️ Médicos", 
