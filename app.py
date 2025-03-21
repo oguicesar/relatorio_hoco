@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 import bcrypt
 import os
-from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config("Dashboard HOCO", layout="wide")
 
@@ -106,87 +104,51 @@ if st.session_state.get("logado"):
                 "🏢 Unidades",
                 "📈 Tendência Temporal",
                 "📋 Resumo Executivo",
-                "📈 Evolução por Tipo de Atendimento",
-                "🗓️ Mapa de Calor por Dia"
+                "📈 Evolução por Tipo de Atendimento"
             ])
-
-            with abas[0]:
-                st.header("📊 Visão Geral")
-                faturamento_total = df_filtrado["Valor Unitário"].sum()
-                ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
-                pacientes_unicos = df_filtrado["Paciente"].nunique()
-                total_atendimentos = len(df_filtrado)
-
-                col1, col2, col3 = st.columns(3)
-                col1.metric("🎯 Ticket Médio Geral", f"R$ {ticket_medio_geral:,.2f}")
-                col2.metric("👥 Pacientes Atendidos", f"{pacientes_unicos}")
-                col3.metric("🧾 Total de Atendimentos", f"{total_atendimentos:,}")
-
-                st.subheader("📄 Visualização da Base")
-                st.dataframe(df_filtrado.head(100))
 
             with abas[1]:
                 st.header("👨‍⚕️ Análises por Médico")
                 fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
-                fig1, ax1 = plt.subplots(figsize=(10, 5))
-                sns.barplot(y="Médico", x="Valor Unitário", data=fat_medico, ax=ax1)
-                ax1.set_xlabel("Faturamento (R$)")
-                st.pyplot(fig1)
+
+                fig = px.bar(
+                    fat_medico,
+                    x="Valor Unitário",
+                    y="Médico",
+                    orientation="h",
+                    title="Faturamento por Médico",
+                    labels={"Valor Unitário": "Faturamento (R$)", "Médico": "Médico"},
+                    text_auto=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
             with abas[2]:
                 st.header("💳 Análises por Plano")
                 fat_plano = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
-                fig2, ax2 = plt.subplots(figsize=(10, 5))
-                sns.barplot(y="Categoria", x="Valor Unitário", data=fat_plano, ax=ax2)
-                ax2.set_xlabel("Faturamento (R$)")
-                st.pyplot(fig2)
 
-            with abas[3]:
-                st.header("🏢 Análises por Unidade")
-                fat_uni = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
-                fig3, ax3 = plt.subplots(figsize=(10, 5))
-                sns.barplot(y="Unidade da Clínica", x="Valor Unitário", data=fat_uni, ax=ax3)
-                ax3.set_xlabel("Faturamento (R$)")
-                st.pyplot(fig3)
+                fig = px.bar(
+                    fat_plano,
+                    x="Categoria",
+                    y="Valor Unitário",
+                    title="Faturamento por Plano",
+                    labels={"Valor Unitário": "Faturamento (R$)", "Categoria": "Plano"},
+                    text_auto=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
             with abas[4]:
                 st.header("📈 Tendência Temporal")
                 evolucao = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
-                fig4, ax4 = plt.subplots(figsize=(12, 4))
-                sns.lineplot(x="Ano-Mês", y="Valor Unitário", data=evolucao, marker="o", ax=ax4)
-                ax4.set_title("Evolução do Faturamento Mensal")
-                st.pyplot(fig4)
 
-            with abas[5]:
-                st.header("📋 Resumo Executivo")
-                resumo = df_filtrado.groupby("Médico").agg({
-                    "Paciente": "count",
-                    "Valor Unitário": ["mean", "sum"]
-                }).reset_index()
-                resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
-                st.dataframe(resumo.style.format({
-                    "Ticket Médio": "R$ {:,.2f}",
-                    "Faturamento Total": "R$ {:,.2f}"
-                }))
-
-            with abas[6]:
-                st.subheader("📈 Evolução por Tipo de Atendimento")
-                evolucao_tipo = df_filtrado.groupby(["Ano-Mês", "Atendimento"])["Valor Unitário"].sum().reset_index()
-                fig_tipo, ax_tipo = plt.subplots(figsize=(12, 5))
-                sns.lineplot(data=evolucao_tipo, x="Ano-Mês", y="Valor Unitário", hue="Atendimento", marker="o", ax=ax_tipo)
-                ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
-                st.pyplot(fig_tipo)
-
-            with abas[7]:
-                st.subheader("🗓️ Mapa de Calor por Dia da Semana")
-                mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
-                mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
-
-                verde_custom = LinearSegmentedColormap.from_list(
-                    "verde_custom", ["#e5f9f6", "#b2e5db", "#4cbba7", "#00665B"]
+                fig = px.line(
+                    evolucao,
+                    x="Ano-Mês",
+                    y="Valor Unitário",
+                    title="Evolução do Faturamento Mensal",
+                    labels={"Valor Unitário": "Faturamento (R$)", "Ano-Mês": "Mês"},
+                    markers=True
                 )
-
-                st.dataframe(mapa_pivot.style.background_gradient(cmap=verde_custom, axis=None))
+                st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
