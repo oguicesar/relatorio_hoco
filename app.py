@@ -8,9 +8,10 @@ import streamlit_authenticator as stauth
 names = ['Admin User', 'Gestor HOCO']
 usernames = ['admin', 'gestor']
 hashed_passwords = [
-    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",
-    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"
+    "$2b$12$yVN6yPYQX2d8O8mD3cbYHOpA01Rok3IRqPuqDgUTaBe8/EpNmrVqO",  # admin
+    "$2b$12$yVN6yPYQX2d8O8mD3cbYHOpA01Rok3IRqPuqDgUTaBe8/EpNmrVqO"   # gestor
 ]
+
 
 credentials = {
     "usernames": {
