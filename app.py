@@ -161,7 +161,7 @@ if st.session_state.get("logado"):
                 ax4.set_title("Evolução do Faturamento Mensal")
                 st.pyplot(fig4)
 
-            with aba6:
+                        with aba6:
                 st.header("📋 Resumo Executivo")
                 resumo = df_filtrado.groupby("Médico").agg({
                     "Paciente": "count",
@@ -181,20 +181,20 @@ if st.session_state.get("logado"):
                 ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
                 st.pyplot(fig_tipo)
 
+            with aba8:
+                from matplotlib.colors import LinearSegmentedColormap
+                st.subheader("🗓️ Mapa de Calor por Dia da Semana")
+                mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
+                mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
 
-with aba8:
-    st.subheader("🗓️ Mapa de Calor por Dia da Semana")
-    mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
-    mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
+                verde_custom = LinearSegmentedColormap.from_list(
+                    "verde_custom", ["#e5f9f6", "#b2e5db", "#4cbba7", "#00665B"]
+                )
 
-    # Criar colormap customizado verde (a partir de #00665B)
-    verde_custom = LinearSegmentedColormap.from_list("verde_custom", ["#e5f9f6", "#b2e5db", "#4cbba7", "#00665B"])
-
-    st.dataframe(mapa_pivot.style.background_gradient(cmap=verde_custom, axis=None))
-
-
+                st.dataframe(mapa_pivot.style.background_gradient(cmap=verde_custom, axis=None))
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
+
     else:
         st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
