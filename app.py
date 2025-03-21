@@ -9,7 +9,11 @@ from yaml.loader import SafeLoader
 # ==== LOGIN (Controle de Acesso) ====
 names = ['Admin User', 'Gestor HOCO']
 usernames = ['admin', 'gestor']
-hashed_passwords = stauth.Hasher(['123', '123']).generate()
+hashed_passwords = [
+    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",  # hash de '123'
+    "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"   # hash de '123'
+]
+
 
 credentials = {
     "usernames": {
