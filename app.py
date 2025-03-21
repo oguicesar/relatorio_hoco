@@ -3,13 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
 
-# ==== LOGIN (Controle de Acesso) ====
+# === LOGIN CONFIG ===
 names = ['Admin User', 'Gestor HOCO']
 usernames = ['admin', 'gestor']
-# Hash da senha '123' pré-gerado
+# Hash da senha '123'
 hashed_passwords = [
     "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta",
     "$2b$12$uECzIYHMbFfW5FfpP0RZeePRv9tNW7oibvxn43AO80gjKjswTE6Ta"
@@ -29,8 +27,8 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-# Alteramos a localização para "sidebar" para evitar o erro.
-name, authentication_status, username = authenticator.login("Login", "sidebar")
+# ✅ Localização do formulário de login corrigida para "main"
+name, authentication_status, username = authenticator.login("Login", "main")
 
 if authentication_status == False:
     st.error("❌ Usuário ou senha incorretos")
@@ -38,7 +36,7 @@ if authentication_status == False:
 if authentication_status == None:
     st.warning("👋 Faça login para acessar o dashboard.")
 
-# ==== SOMENTE USUÁRIO AUTENTICADO ACESSA ====
+# ==== APÓS LOGIN VALIDADO ====
 if authentication_status:
     authenticator.logout("Logout", "sidebar")
     st.sidebar.success(f"👤 Bem-vindo, {name}!")
@@ -48,12 +46,12 @@ if authentication_status:
 
     st.markdown("""
     Faça o upload do arquivo `.csv` com as seguintes colunas:
-    
+
     - Número
     - Paciente
-    - Categoria (Plano)
+    - Categoria
     - Médico
-    - Atendimento (Consulta, Exame ou Procedimento)
+    - Atendimento
     - Valor Unitário
     - Data de realização
     - Dia da semana
@@ -77,7 +75,6 @@ if authentication_status:
             df["Valor Unitário"] = pd.to_numeric(df["Valor Unitário"], errors="coerce")
             df.dropna(subset=["Valor Unitário"], inplace=True)
 
-            # Filtros
             st.sidebar.header("🎯 Filtros")
             anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].unique()), default=sorted(df["Ano"].unique()))
             meses = st.sidebar.multiselect("Mês", sorted(df["Mês"].unique()), default=sorted(df["Mês"].unique()))
@@ -86,7 +83,6 @@ if authentication_status:
             atendimentos = st.sidebar.multiselect("Atendimento", df["Atendimento"].unique(), default=df["Atendimento"].unique())
             planos = st.sidebar.multiselect("Categoria", df["Categoria"].unique(), default=df["Categoria"].unique())
 
-            # Filtro de dados
             df_filtrado = df[
                 (df["Ano"].isin(anos)) &
                 (df["Mês"].isin(meses)) &
@@ -95,14 +91,14 @@ if authentication_status:
                 (df["Atendimento"].isin(atendimentos)) &
                 (df["Categoria"].isin(planos))
             ]
+
             df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
 
-            # Criar abas
             aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
-                "📊 Visão Geral", 
-                "👨‍⚕️ Médicos", 
-                "💳 Planos", 
-                "🏢 Unidades", 
+                "📊 Visão Geral",
+                "👨‍⚕️ Médicos",
+                "💳 Planos",
+                "🏢 Unidades",
                 "📈 Tendência Temporal",
                 "📋 Resumo Executivo"
             ])
@@ -238,4 +234,4 @@ if authentication_status:
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
     else:
-        st.warning("👆 Faça upload de um arquivo .csv gerado com as colunas indicadas.")
+        st.warning("👆 Faça upload de um arquivo .csv com a estrutura correta.")
