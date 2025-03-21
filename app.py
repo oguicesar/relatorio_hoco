@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import bcrypt
 import os
+from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config("Dashboard HOCO", layout="wide")
 
@@ -180,9 +181,7 @@ if st.session_state.get("logado"):
                 ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
                 st.pyplot(fig_tipo)
 
-            from matplotlib.colors import LinearSegmentedColormap
-
-with aba8:
+            with aba8:
     st.subheader("🗓️ Mapa de Calor por Dia da Semana")
     mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
     mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
