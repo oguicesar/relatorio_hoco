@@ -129,3 +129,35 @@ if uploaded_file:
         st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
     st.warning("👆 Faça upload de um arquivo .csv gerado com as colunas indicadas.")
+
+# ====== Evolução Temporal ======
+st.subheader("📆 Evolução Mensal do Faturamento")
+
+# Agrupar por Ano e Mês
+df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
+
+evolucao_total = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
+
+fig_ev, ax_ev = plt.subplots(figsize=(10, 4))
+sns.lineplot(data=evolucao_total, x="Ano-Mês", y="Valor Unitário", marker="o", ax=ax_ev)
+ax_ev.set_ylabel("Faturamento (R$)")
+ax_ev.set_xlabel("Mês")
+ax_ev.set_title("Evolução do Faturamento Total")
+st.pyplot(fig_ev)
+
+# ====== Evolução por Médico ======
+st.subheader("📈 Evolução por Médico (Top 5)")
+
+# Selecionar top 5 médicos
+top5_medicos = df_filtrado.groupby("Médico")["Valor Unitário"].sum().sort_values(ascending=False).head(5).index
+df_top5 = df_filtrado[df_filtrado["Médico"].isin(top5_medicos)]
+
+evolucao_medicos = df_top5.groupby(["Ano-Mês", "Médico"])["Valor Unitário"].sum().reset_index()
+
+fig_ev2, ax_ev2 = plt.subplots(figsize=(12, 5))
+sns.lineplot(data=evolucao_medicos, x="Ano-Mês", y="Valor Unitário", hue="Médico", marker="o", ax=ax_ev2)
+ax_ev2.set_ylabel("Faturamento (R$)")
+ax_ev2.set_xlabel("Mês")
+ax_ev2.set_title("Evolução do Faturamento - Top 5 Médicos")
+st.pyplot(fig_ev2)
+
