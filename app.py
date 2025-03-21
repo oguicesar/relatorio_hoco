@@ -161,3 +161,49 @@ ax_ev2.set_xlabel("Mês")
 ax_ev2.set_title("Evolução do Faturamento - Top 5 Médicos")
 st.pyplot(fig_ev2)
 
+# ====== Evolução por Categoria (Plano) ======
+st.subheader("💳 Evolução por Categoria (Plano)")
+
+evolucao_plano = df_filtrado.groupby(["Ano-Mês", "Categoria"])["Valor Unitário"].sum().reset_index()
+
+fig_ev3, ax_ev3 = plt.subplots(figsize=(12, 5))
+sns.lineplot(data=evolucao_plano, x="Ano-Mês", y="Valor Unitário", hue="Categoria", marker="o", ax=ax_ev3)
+ax_ev3.set_ylabel("Faturamento (R$)")
+ax_ev3.set_xlabel("Mês")
+ax_ev3.set_title("Evolução do Faturamento por Plano")
+st.pyplot(fig_ev3)
+
+# ====== Evolução por Unidade da Clínica ======
+st.subheader("🏢 Evolução por Unidade da Clínica")
+
+evolucao_unidade = df_filtrado.groupby(["Ano-Mês", "Unidade da Clínica"])["Valor Unitário"].sum().reset_index()
+
+fig_ev4, ax_ev4 = plt.subplots(figsize=(12, 5))
+sns.lineplot(data=evolucao_unidade, x="Ano-Mês", y="Valor Unitário", hue="Unidade da Clínica", marker="o", ax=ax_ev4)
+ax_ev4.set_ylabel("Faturamento (R$)")
+ax_ev4.set_xlabel("Mês")
+ax_ev4.set_title("Evolução do Faturamento por Unidade")
+st.pyplot(fig_ev4)
+
+# ====== Alertas de Crescimento ou Queda ======
+st.subheader("🚨 Alertas de Tendência (últimos 2 meses)")
+
+# Últimos dois meses disponíveis
+ultimos_meses = evolucao_total.sort_values(by="Ano-Mês").tail(2)
+
+if len(ultimos_meses) == 2:
+    val_1 = ultimos_meses.iloc[0]["Valor Unitário"]
+    val_2 = ultimos_meses.iloc[1]["Valor Unitário"]
+    delta = val_2 - val_1
+    perc = (delta / val_1 * 100) if val_1 > 0 else 0
+
+    if perc >= 10:
+        st.success(f"📈 Crescimento de {perc:.1f}% no faturamento em relação ao mês anterior.")
+    elif perc <= -10:
+        st.error(f"📉 Queda de {abs(perc):.1f}% no faturamento em relação ao mês anterior.")
+    else:
+        st.info(f"⚖️ Estabilidade: variação de {perc:.1f}% no último mês.")
+else:
+    st.warning("Não há dados suficientes para calcular a variação de tendência.")
+
+
