@@ -23,27 +23,24 @@ Este dashboard permite analisar o faturamento mensal do HOCO com base em uma pla
 | Dr. José Roberto   | UNIMED     | 900         |
 """)
 
-# Upload do arquivo CSV
 uploaded_file = st.file_uploader("📂 Faça upload do arquivo .csv", type=["csv"])
 
 if uploaded_file:
     try:
-        df = pd.read_csv(uploaded_file)
+        # Lê o CSV com encoding padrão do Excel brasileiro e separador ponto e vírgula
+        df = pd.read_csv(uploaded_file, encoding='latin1', sep=';')
 
         # Verifica se as colunas obrigatórias existem
         colunas_esperadas = {"Médico", "Convênio", "Faturamento"}
         if not colunas_esperadas.issubset(set(df.columns)):
             st.error(f"❌ As colunas obrigatórias são: {', '.join(colunas_esperadas)}")
         else:
-            # Dados carregados
             st.subheader("🔍 Dados Carregados")
             st.dataframe(df)
 
-            # Agrupamentos
             faturamento_medico = df.groupby("Médico")["Faturamento"].sum().reset_index().sort_values(by="Faturamento", ascending=False)
             faturamento_convenio = df.groupby("Convênio")["Faturamento"].sum().reset_index().sort_values(by="Faturamento", ascending=False)
 
-            # KPIs
             total_faturamento = df["Faturamento"].sum()
             particular = faturamento_convenio[faturamento_convenio["Convênio"] == "PARTICULAR"]["Faturamento"].sum()
             percentual_particular = (particular / total_faturamento) * 100
@@ -53,20 +50,19 @@ if uploaded_file:
             col1.metric("💰 Faturamento Total", f"R$ {total_faturamento:,.2f}")
             col2.metric("🏥 Particular vs Convênios", f"{percentual_particular:.2f}% | {percentual_convenio:.2f}%")
 
-            # Gráfico por médico
             st.subheader("👨‍⚕️ Faturamento por Médico")
             fig1, ax1 = plt.subplots(figsize=(10, 5))
             sns.barplot(y=faturamento_medico["Médico"], x=faturamento_medico["Faturamento"], palette="Blues_r")
             ax1.set_xlabel("Faturamento (R$)")
             st.pyplot(fig1)
 
-            # Gráfico por convênio
             st.subheader("📋 Faturamento por Convênio")
             fig2, ax2 = plt.subplots(figsize=(10, 5))
             sns.barplot(y=faturamento_convenio["Convênio"], x=faturamento_convenio["Faturamento"], palette="Reds_r")
             ax2.set_xlabel("Faturamento (R$)")
             st.pyplot(fig2)
+
     except Exception as e:
-        st.error(f"Erro ao processar o arquivo: {e}")
+        st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
-    st.warning("👆 Faça upload de um arquivo .csv para começar a análise.")
+    st.warning("👆 Faça upload de um arquivo .csv com colunas: Médico, Convênio, Faturamento")
