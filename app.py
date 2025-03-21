@@ -12,37 +12,41 @@ Este dashboard permite analisar o faturamento mensal do HOCO com base em uma pla
 ➡️ Faça o upload da planilha contendo as seguintes colunas obrigatórias:
 
 - `Médico`
-- `Convênio`
-- `Faturamento`
+- `Plano`
+- `valor`
 
 **Formato esperado do arquivo:**
 
-| Médico              | Convênio   | Faturamento |
-|--------------------|------------|-------------|
-| Dr. Alencar Gomes  | PARTICULAR | 1500        |
-| Dr. José Roberto   | UNIMED     | 900         |
+| Médico              | Plano      | valor |
+|--------------------|------------|-------|
+| Dr. Alencar Gomes  | PARTICULAR | 1500  |
+| Dr. José Roberto   | UNIMED     | 900   |
 """)
 
 uploaded_file = st.file_uploader("📂 Faça upload do arquivo .csv", type=["csv"])
 
 if uploaded_file:
     try:
-        # Lê o CSV com encoding padrão do Excel brasileiro e separador ponto e vírgula
+        # Lê o CSV com encoding padrão brasileiro e separador ;
         df = pd.read_csv(uploaded_file, encoding='latin1', sep=';')
 
-        # Verifica se as colunas obrigatórias existem
-        colunas_esperadas = {"Médico", "Convênio", "Faturamento"}
+        # Verifica colunas obrigatórias
+        colunas_esperadas = {"Médico", "Plano", "valor"}
         if not colunas_esperadas.issubset(set(df.columns)):
             st.error(f"❌ As colunas obrigatórias são: {', '.join(colunas_esperadas)}")
         else:
+            # Garantir que 'valor' seja numérico
+            df["valor"] = pd.to_numeric(df["valor"], errors='coerce')
+            df.dropna(subset=["valor"], inplace=True)
+
             st.subheader("🔍 Dados Carregados")
             st.dataframe(df)
 
-            faturamento_medico = df.groupby("Médico")["Faturamento"].sum().reset_index().sort_values(by="Faturamento", ascending=False)
-            faturamento_convenio = df.groupby("Convênio")["Faturamento"].sum().reset_index().sort_values(by="Faturamento", ascending=False)
+            faturamento_medico = df.groupby("Médico")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
+            faturamento_plano = df.groupby("Plano")["valor"].sum().reset_index().sort_values(by="valor", ascending=False)
 
-            total_faturamento = df["Faturamento"].sum()
-            particular = faturamento_convenio[faturamento_convenio["Convênio"] == "PARTICULAR"]["Faturamento"].sum()
+            total_faturamento = df["valor"].sum()
+            particular = faturamento_plano[faturamento_plano["Plano"].str.upper() == "PARTICULAR"]["valor"].sum()
             percentual_particular = (particular / total_faturamento) * 100
             percentual_convenio = 100 - percentual_particular
 
@@ -52,17 +56,17 @@ if uploaded_file:
 
             st.subheader("👨‍⚕️ Faturamento por Médico")
             fig1, ax1 = plt.subplots(figsize=(10, 5))
-            sns.barplot(y=faturamento_medico["Médico"], x=faturamento_medico["Faturamento"], palette="Blues_r")
+            sns.barplot(y=faturamento_medico["Médico"], x=faturamento_medico["valor"], palette="Blues_r")
             ax1.set_xlabel("Faturamento (R$)")
             st.pyplot(fig1)
 
-            st.subheader("📋 Faturamento por Convênio")
+            st.subheader("📋 Faturamento por Plano")
             fig2, ax2 = plt.subplots(figsize=(10, 5))
-            sns.barplot(y=faturamento_convenio["Convênio"], x=faturamento_convenio["Faturamento"], palette="Reds_r")
+            sns.barplot(y=faturamento_plano["Plano"], x=faturamento_plano["valor"], palette="Reds_r")
             ax2.set_xlabel("Faturamento (R$)")
             st.pyplot(fig2)
 
     except Exception as e:
         st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
-    st.warning("👆 Faça upload de um arquivo .csv com colunas: Médico, Convênio, Faturamento")
+    st.warning("👆 Faça upload de um arquivo .csv com colunas: Médico, Plano, valor")
