@@ -8,7 +8,6 @@ from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config("Dashboard HOCO", layout="wide")
 
-# ========= Usuários =========
 USER_FILE = "usuarios.csv"
 
 def carregar_usuarios():
@@ -27,11 +26,9 @@ def autenticar(username, senha, df_usuarios):
         return bcrypt.checkpw(senha.encode(), hashed.encode()), user.iloc[0]["name"]
     return False, None
 
-# ========= Sessão =========
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
-# ========= Login / Cadastro =========
 if not st.session_state["logado"]:
     st.title("🔐 Acesso ao Dashboard HOCO")
     aba_login, aba_cadastro = st.tabs(["🔑 Já tenho cadastro", "📝 Quero me cadastrar"])
@@ -69,7 +66,6 @@ if not st.session_state["logado"]:
                 st.download_button("⬇ Baixar novo arquivo de usuários", df_usuarios.to_csv(index=False), file_name="usuarios.csv")
                 st.stop()
 
-# ========= Dashboard =========
 if st.session_state.get("logado"):
     st.sidebar.success(f"👤 Bem-vindo, {st.session_state['nome']}!")
 
@@ -103,7 +99,7 @@ if st.session_state.get("logado"):
                 (df["Categoria"].isin(planos))
             ]
 
-            aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8 = st.tabs([
+            abas = st.tabs([
                 "📊 Visão Geral",
                 "👨‍⚕️ Médicos",
                 "💳 Planos",
@@ -114,7 +110,7 @@ if st.session_state.get("logado"):
                 "🗓️ Mapa de Calor por Dia"
             ])
 
-            with aba1:
+            with abas[0]:
                 st.header("📊 Visão Geral")
                 faturamento_total = df_filtrado["Valor Unitário"].sum()
                 ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
@@ -129,7 +125,7 @@ if st.session_state.get("logado"):
                 st.subheader("📄 Visualização da Base")
                 st.dataframe(df_filtrado.head(100))
 
-            with aba2:
+            with abas[1]:
                 st.header("👨‍⚕️ Análises por Médico")
                 fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
                 fig1, ax1 = plt.subplots(figsize=(10, 5))
@@ -137,7 +133,7 @@ if st.session_state.get("logado"):
                 ax1.set_xlabel("Faturamento (R$)")
                 st.pyplot(fig1)
 
-            with aba3:
+            with abas[2]:
                 st.header("💳 Análises por Plano")
                 fat_plano = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
                 fig2, ax2 = plt.subplots(figsize=(10, 5))
@@ -145,7 +141,7 @@ if st.session_state.get("logado"):
                 ax2.set_xlabel("Faturamento (R$)")
                 st.pyplot(fig2)
 
-            with aba4:
+            with abas[3]:
                 st.header("🏢 Análises por Unidade")
                 fat_uni = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
                 fig3, ax3 = plt.subplots(figsize=(10, 5))
@@ -153,7 +149,7 @@ if st.session_state.get("logado"):
                 ax3.set_xlabel("Faturamento (R$)")
                 st.pyplot(fig3)
 
-            with aba5:
+            with abas[4]:
                 st.header("📈 Tendência Temporal")
                 evolucao = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
                 fig4, ax4 = plt.subplots(figsize=(12, 4))
@@ -161,7 +157,7 @@ if st.session_state.get("logado"):
                 ax4.set_title("Evolução do Faturamento Mensal")
                 st.pyplot(fig4)
 
-                        with aba6:
+            with abas[5]:
                 st.header("📋 Resumo Executivo")
                 resumo = df_filtrado.groupby("Médico").agg({
                     "Paciente": "count",
@@ -173,7 +169,7 @@ if st.session_state.get("logado"):
                     "Faturamento Total": "R$ {:,.2f}"
                 }))
 
-            with aba7:
+            with abas[6]:
                 st.subheader("📈 Evolução por Tipo de Atendimento")
                 evolucao_tipo = df_filtrado.groupby(["Ano-Mês", "Atendimento"])["Valor Unitário"].sum().reset_index()
                 fig_tipo, ax_tipo = plt.subplots(figsize=(12, 5))
@@ -181,8 +177,7 @@ if st.session_state.get("logado"):
                 ax_tipo.set_title("Tendência Mensal por Tipo de Atendimento")
                 st.pyplot(fig_tipo)
 
-            with aba8:
-                from matplotlib.colors import LinearSegmentedColormap
+            with abas[7]:
                 st.subheader("🗓️ Mapa de Calor por Dia da Semana")
                 mapa_dia = df_filtrado.groupby(["Médico", "Dia da semana"]).size().reset_index(name="Atendimentos")
                 mapa_pivot = mapa_dia.pivot(index="Médico", columns="Dia da semana", values="Atendimentos").fillna(0)
@@ -195,6 +190,5 @@ if st.session_state.get("logado"):
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
-
     else:
         st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
