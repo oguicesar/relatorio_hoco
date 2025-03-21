@@ -193,3 +193,23 @@ if uploaded_file:
         st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
     st.warning("👆 Faça upload de um arquivo .csv gerado com as colunas indicadas.")
+
+
+st.subheader("🔁 Frequência de Pacientes")
+
+# Top 10 pacientes mais atendidos
+paciente_freq = df_filtrado["Paciente"].value_counts().reset_index()
+paciente_freq.columns = ["Paciente", "Qtd de Atendimentos"]
+top_pacientes = paciente_freq.head(10)
+
+st.markdown("**👥 Top 10 Pacientes Mais Frequentes**")
+st.dataframe(top_pacientes)
+
+# Média de atendimentos por paciente
+media_atend_por_paciente = paciente_freq["Qtd de Atendimentos"].mean()
+st.metric("📊 Média de Atendimentos por Paciente", f"{media_atend_por_paciente:.2f}")
+
+# Média de atendimentos por médico
+atend_por_medico = df_filtrado.groupby("Médico")["Paciente"].count()
+media_por_medico = atend_por_medico.mean()
+st.metric("👨‍⚕️ Média de Atendimentos por Médico", f"{media_por_medico:.2f}")
