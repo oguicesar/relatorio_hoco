@@ -107,50 +107,41 @@ if st.session_state.get("logado"):
                 "📈 Evolução por Tipo de Atendimento"
             ])
 
-            with abas[1]:
-                st.header("👨‍⚕️ Análises por Médico")
-                fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
+            with abas[0]:  # Visão Geral
+                st.header("📊 Visão Geral")
+                faturamento_total = df_filtrado["Valor Unitário"].sum()
+                ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
+                pacientes_unicos = df_filtrado["Paciente"].nunique()
+                total_atendimentos = len(df_filtrado)
 
-                fig = px.bar(
-                    fat_medico,
-                    x="Valor Unitário",
-                    y="Médico",
-                    orientation="h",
-                    title="Faturamento por Médico",
-                    labels={"Valor Unitário": "Faturamento (R$)", "Médico": "Médico"},
-                    text_auto=True
-                )
+                col1, col2, col3 = st.columns(3)
+                col1.metric("🎯 Ticket Médio Geral", f"R$ {ticket_medio_geral:,.2f}")
+                col2.metric("👥 Pacientes Atendidos", f"{pacientes_unicos}")
+                col3.metric("🧾 Total de Atendimentos", f"{total_atendimentos:,}")
+
+            with abas[3]:  # Unidades
+                st.header("🏢 Análises por Unidade")
+                fat_uni = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
+                fig = px.bar(fat_uni, x="Unidade da Clínica", y="Valor Unitário", title="Faturamento por Unidade")
                 st.plotly_chart(fig, use_container_width=True)
 
-            with abas[2]:
-                st.header("💳 Análises por Plano")
-                fat_plano = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
+            with abas[5]:  # Resumo Executivo
+                st.header("📋 Resumo Executivo")
+                resumo = df_filtrado.groupby("Médico").agg({
+                    "Paciente": "count",
+                    "Valor Unitário": ["mean", "sum"]
+                }).reset_index()
+                resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
+                st.dataframe(resumo.style.format({"Ticket Médio": "R$ {:,.2f}", "Faturamento Total": "R$ {:,.2f}"}))
 
-                fig = px.bar(
-                    fat_plano,
-                    x="Categoria",
-                    y="Valor Unitário",
-                    title="Faturamento por Plano",
-                    labels={"Valor Unitário": "Faturamento (R$)", "Categoria": "Plano"},
-                    text_auto=True
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-            with abas[4]:
-                st.header("📈 Tendência Temporal")
-                evolucao = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
-
-                fig = px.line(
-                    evolucao,
-                    x="Ano-Mês",
-                    y="Valor Unitário",
-                    title="Evolução do Faturamento Mensal",
-                    labels={"Valor Unitário": "Faturamento (R$)", "Ano-Mês": "Mês"},
-                    markers=True
-                )
+            with abas[6]:  # Evolução por Tipo de Atendimento
+                st.subheader("📈 Evolução por Tipo de Atendimento")
+                evolucao_tipo = df_filtrado.groupby(["Ano-Mês", "Atendimento"])["Valor Unitário"].sum().reset_index()
+                fig = px.line(evolucao_tipo, x="Ano-Mês", y="Valor Unitário", color="Atendimento", title="Tendência por Tipo de Atendimento")
                 st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
+
     else:
         st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
