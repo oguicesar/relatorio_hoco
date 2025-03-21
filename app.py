@@ -37,7 +37,7 @@ if uploaded_file:
         df["Valor Unitário"] = pd.to_numeric(df["Valor Unitário"], errors="coerce")
         df.dropna(subset=["Valor Unitário"], inplace=True)
 
-        # Sidebar - Filtros
+        # Filtros
         st.sidebar.header("🎯 Filtros")
         anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].unique()), default=sorted(df["Ano"].unique()))
         meses = st.sidebar.multiselect("Mês", sorted(df["Mês"].unique()), default=sorted(df["Mês"].unique()))
@@ -56,154 +56,140 @@ if uploaded_file:
             (df["Categoria"].isin(planos))
         ]
 
-        faturamento_total = df_filtrado["Valor Unitário"].sum()
-        particular_total = df_filtrado[df_filtrado["Categoria"].str.upper() == "PARTICULAR"]["Valor Unitário"].sum()
-        perc_particular = (particular_total / faturamento_total * 100) if faturamento_total > 0 else 0
+        df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
 
-        st.subheader("📊 Dados Filtrados")
-        st.dataframe(df_filtrado.head(100))
+        # Criar abas
+        aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
+            "📊 Visão Geral", 
+            "👨‍⚕️ Médicos", 
+            "💳 Planos", 
+            "🏢 Unidades", 
+            "📈 Tendência Temporal",
+            "📋 Resumo Executivo"
+        ])
 
-        # ====== KPIs Estratégicos ======
-        st.subheader("📈 Indicadores Estratégicos")
+        # === ABA 1: Visão Geral ===
+        with aba1:
+            st.header("📊 Visão Geral")
 
-        ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
-        pacientes_unicos = df_filtrado["Paciente"].nunique()
-        total_atendimentos = len(df_filtrado)
+            faturamento_total = df_filtrado["Valor Unitário"].sum()
+            particular_total = df_filtrado[df_filtrado["Categoria"].str.upper() == "PARTICULAR"]["Valor Unitário"].sum()
+            perc_particular = (particular_total / faturamento_total * 100) if faturamento_total > 0 else 0
 
-        ticket_medio_medico = df_filtrado.groupby("Médico")["Valor Unitário"].mean().reset_index().sort_values(by="Valor Unitário", ascending=False)
-        volume_atendimento = df_filtrado["Atendimento"].value_counts().reset_index()
-        volume_atendimento.columns = ["Tipo", "Quantidade"]
+            ticket_medio_geral = df_filtrado["Valor Unitário"].mean()
+            pacientes_unicos = df_filtrado["Paciente"].nunique()
+            total_atendimentos = len(df_filtrado)
 
-        faturamento_categoria = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
-        faturamento_categoria["%"] = (faturamento_categoria["Valor Unitário"] / faturamento_total) * 100
-        faturamento_categoria = faturamento_categoria.sort_values(by="Valor Unitário", ascending=False)
+            col1, col2, col3 = st.columns(3)
+            col1.metric("🎯 Ticket Médio Geral", f"R$ {ticket_medio_geral:,.2f}")
+            col2.metric("👥 Pacientes Atendidos", f"{pacientes_unicos}")
+            col3.metric("🧾 Total de Atendimentos", f"{total_atendimentos:,}")
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("🎯 Ticket Médio Geral", f"R$ {ticket_medio_geral:,.2f}")
-        col2.metric("👥 Pacientes Atendidos", f"{pacientes_unicos}")
-        col3.metric("🧾 Total de Atendimentos", f"{total_atendimentos:,}")
+            st.subheader("📄 Visualização da Base")
+            st.dataframe(df_filtrado.head(100))
 
-        # ====== Gráficos ======
+        # === ABA 2: Médicos ===
+        with aba2:
+            st.header("👨‍⚕️ Análises por Médico")
 
-        # Ticket médio por médico
-        st.subheader("💵 Ticket Médio por Médico")
-        fig_tm, ax_tm = plt.subplots(figsize=(10, 5))
-        sns.barplot(data=ticket_medio_medico, y="Médico", x="Valor Unitário", ax=ax_tm, palette="viridis")
-        ax_tm.set_xlabel("Ticket Médio (R$)")
-        st.pyplot(fig_tm)
+            ticket_medio_medico = df_filtrado.groupby("Médico")["Valor Unitário"].mean().reset_index().sort_values(by="Valor Unitário", ascending=False)
+            fig_tm, ax_tm = plt.subplots(figsize=(10, 5))
+            sns.barplot(data=ticket_medio_medico, y="Médico", x="Valor Unitário", ax=ax_tm, palette="viridis")
+            ax_tm.set_xlabel("Ticket Médio (R$)")
+            st.pyplot(fig_tm)
 
-        # Volume por tipo de atendimento
-        st.subheader("📊 Volume de Atendimentos por Tipo")
-        fig_vol, ax_vol = plt.subplots(figsize=(6, 4))
-        sns.barplot(data=volume_atendimento, y="Tipo", x="Quantidade", ax=ax_vol, palette="pastel")
-        st.pyplot(fig_vol)
+            fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
+            fig1, ax1 = plt.subplots(figsize=(10, 5))
+            sns.barplot(y="Médico", x="Valor Unitário", data=fat_medico, ax=ax1)
+            ax1.set_xlabel("Faturamento (R$)")
+            st.pyplot(fig1)
 
-        # Receita por plano
-        st.subheader("📋 Receita por Categoria (Plano)")
-        st.dataframe(faturamento_categoria.style.format({"Valor Unitário": "R$ {:,.2f}", "%": "{:.1f}%"}))
+        # === ABA 3: Planos ===
+        with aba3:
+            st.header("💳 Análises por Categoria (Plano)")
 
-        # Receita por médico
-        st.subheader("👨‍⚕️ Faturamento por Médico")
-        fat_medico = df_filtrado.groupby("Médico")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        sns.barplot(y="Médico", x="Valor Unitário", data=fat_medico, ax=ax1)
-        ax1.set_xlabel("Faturamento (R$)")
-        st.pyplot(fig1)
+            faturamento_categoria = df_filtrado.groupby("Categoria")["Valor Unitário"].sum().reset_index()
+            faturamento_categoria["%"] = (faturamento_categoria["Valor Unitário"] / faturamento_total) * 100
+            faturamento_categoria = faturamento_categoria.sort_values(by="Valor Unitário", ascending=False)
 
-        # Receita por plano gráfico
-        st.subheader("📋 Faturamento por Categoria (Gráfico)")
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        sns.barplot(y="Categoria", x="Valor Unitário", data=faturamento_categoria, ax=ax2)
-        ax2.set_xlabel("Faturamento (R$)")
-        st.pyplot(fig2)
+            st.dataframe(faturamento_categoria.style.format({"Valor Unitário": "R$ {:,.2f}", "%": "{:.1f}%"}))
 
-        # Faturamento por tipo de atendimento
-        st.subheader("🩺 Faturamento por Tipo de Atendimento")
-        fat_atendimento = df_filtrado.groupby("Atendimento")["Valor Unitário"].sum().reset_index().sort_values(by="Valor Unitário", ascending=False)
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        sns.barplot(y="Atendimento", x="Valor Unitário", data=fat_atendimento, ax=ax3)
-        ax3.set_xlabel("Faturamento (R$)")
-        st.pyplot(fig3)
+            fig2, ax2 = plt.subplots(figsize=(10, 5))
+            sns.barplot(y="Categoria", x="Valor Unitário", data=faturamento_categoria, ax=ax2)
+            ax2.set_xlabel("Faturamento (R$)")
+            st.pyplot(fig2)
+
+        # === ABA 4: Unidades ===
+        with aba4:
+            st.header("🏢 Análises por Unidade")
+
+            fat_unidade = df_filtrado.groupby("Unidade da Clínica")["Valor Unitário"].sum().reset_index()
+            fig_u, ax_u = plt.subplots(figsize=(10, 4))
+            sns.barplot(y="Unidade da Clínica", x="Valor Unitário", data=fat_unidade, ax=ax_u)
+            st.pyplot(fig_u)
+
+        # === ABA 5: Tendência Temporal ===
+        with aba5:
+            st.header("📈 Evolução Temporal")
+
+            evolucao_total = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
+            fig_ev, ax_ev = plt.subplots(figsize=(10, 4))
+            sns.lineplot(data=evolucao_total, x="Ano-Mês", y="Valor Unitário", marker="o", ax=ax_ev)
+            ax_ev.set_title("Faturamento Total por Mês")
+            st.pyplot(fig_ev)
+
+            st.subheader("👨‍⚕️ Top 5 Médicos - Evolução Mensal")
+            top5_medicos = df_filtrado.groupby("Médico")["Valor Unitário"].sum().sort_values(ascending=False).head(5).index
+            df_top5 = df_filtrado[df_filtrado["Médico"].isin(top5_medicos)]
+            evolucao_medicos = df_top5.groupby(["Ano-Mês", "Médico"])["Valor Unitário"].sum().reset_index()
+
+            fig_ev2, ax_ev2 = plt.subplots(figsize=(12, 5))
+            sns.lineplot(data=evolucao_medicos, x="Ano-Mês", y="Valor Unitário", hue="Médico", marker="o", ax=ax_ev2)
+            st.pyplot(fig_ev2)
+
+            st.subheader("💳 Evolução por Plano")
+            evolucao_plano = df_filtrado.groupby(["Ano-Mês", "Categoria"])["Valor Unitário"].sum().reset_index()
+            fig_ev3, ax_ev3 = plt.subplots(figsize=(12, 5))
+            sns.lineplot(data=evolucao_plano, x="Ano-Mês", y="Valor Unitário", hue="Categoria", marker="o", ax=ax_ev3)
+            st.pyplot(fig_ev3)
+
+            st.subheader("🏢 Evolução por Unidade")
+            evolucao_unidade = df_filtrado.groupby(["Ano-Mês", "Unidade da Clínica"])["Valor Unitário"].sum().reset_index()
+            fig_ev4, ax_ev4 = plt.subplots(figsize=(12, 5))
+            sns.lineplot(data=evolucao_unidade, x="Ano-Mês", y="Valor Unitário", hue="Unidade da Clínica", marker="o", ax=ax_ev4)
+            st.pyplot(fig_ev4)
+
+            st.subheader("🚨 Alerta de Variação Recente")
+            ultimos_meses = evolucao_total.sort_values(by="Ano-Mês").tail(2)
+            if len(ultimos_meses) == 2:
+                val_1 = ultimos_meses.iloc[0]["Valor Unitário"]
+                val_2 = ultimos_meses.iloc[1]["Valor Unitário"]
+                delta = val_2 - val_1
+                perc = (delta / val_1 * 100) if val_1 > 0 else 0
+                if perc >= 10:
+                    st.success(f"📈 Crescimento de {perc:.1f}% no faturamento em relação ao mês anterior.")
+                elif perc <= -10:
+                    st.error(f"📉 Queda de {abs(perc):.1f}% no faturamento em relação ao mês anterior.")
+                else:
+                    st.info(f"⚖️ Estabilidade: variação de {perc:.1f}% no último mês.")
+
+        # === ABA 6: Resumo Executivo ===
+        with aba6:
+            st.header("📋 Resumo Executivo por Médico")
+
+            resumo = df_filtrado.groupby("Médico").agg({
+                "Paciente": "count",
+                "Valor Unitário": ["mean", "sum"]
+            }).reset_index()
+            resumo.columns = ["Médico", "Atendimentos", "Ticket Médio", "Faturamento Total"]
+            resumo = resumo.sort_values(by="Faturamento Total", ascending=False)
+
+            st.dataframe(resumo.style.format({
+                "Ticket Médio": "R$ {:,.2f}",
+                "Faturamento Total": "R$ {:,.2f}"
+            }))
 
     except Exception as e:
         st.error(f"❌ Erro ao processar o arquivo: {e}")
 else:
     st.warning("👆 Faça upload de um arquivo .csv gerado com as colunas indicadas.")
-
-# ====== Evolução Temporal ======
-st.subheader("📆 Evolução Mensal do Faturamento")
-
-# Agrupar por Ano e Mês
-df_filtrado["Ano-Mês"] = pd.to_datetime(df_filtrado["Ano"].astype(str) + "-" + df_filtrado["Mês"].astype(str) + "-01")
-
-evolucao_total = df_filtrado.groupby("Ano-Mês")["Valor Unitário"].sum().reset_index()
-
-fig_ev, ax_ev = plt.subplots(figsize=(10, 4))
-sns.lineplot(data=evolucao_total, x="Ano-Mês", y="Valor Unitário", marker="o", ax=ax_ev)
-ax_ev.set_ylabel("Faturamento (R$)")
-ax_ev.set_xlabel("Mês")
-ax_ev.set_title("Evolução do Faturamento Total")
-st.pyplot(fig_ev)
-
-# ====== Evolução por Médico ======
-st.subheader("📈 Evolução por Médico (Top 5)")
-
-# Selecionar top 5 médicos
-top5_medicos = df_filtrado.groupby("Médico")["Valor Unitário"].sum().sort_values(ascending=False).head(5).index
-df_top5 = df_filtrado[df_filtrado["Médico"].isin(top5_medicos)]
-
-evolucao_medicos = df_top5.groupby(["Ano-Mês", "Médico"])["Valor Unitário"].sum().reset_index()
-
-fig_ev2, ax_ev2 = plt.subplots(figsize=(12, 5))
-sns.lineplot(data=evolucao_medicos, x="Ano-Mês", y="Valor Unitário", hue="Médico", marker="o", ax=ax_ev2)
-ax_ev2.set_ylabel("Faturamento (R$)")
-ax_ev2.set_xlabel("Mês")
-ax_ev2.set_title("Evolução do Faturamento - Top 5 Médicos")
-st.pyplot(fig_ev2)
-
-# ====== Evolução por Categoria (Plano) ======
-st.subheader("💳 Evolução por Categoria (Plano)")
-
-evolucao_plano = df_filtrado.groupby(["Ano-Mês", "Categoria"])["Valor Unitário"].sum().reset_index()
-
-fig_ev3, ax_ev3 = plt.subplots(figsize=(12, 5))
-sns.lineplot(data=evolucao_plano, x="Ano-Mês", y="Valor Unitário", hue="Categoria", marker="o", ax=ax_ev3)
-ax_ev3.set_ylabel("Faturamento (R$)")
-ax_ev3.set_xlabel("Mês")
-ax_ev3.set_title("Evolução do Faturamento por Plano")
-st.pyplot(fig_ev3)
-
-# ====== Evolução por Unidade da Clínica ======
-st.subheader("🏢 Evolução por Unidade da Clínica")
-
-evolucao_unidade = df_filtrado.groupby(["Ano-Mês", "Unidade da Clínica"])["Valor Unitário"].sum().reset_index()
-
-fig_ev4, ax_ev4 = plt.subplots(figsize=(12, 5))
-sns.lineplot(data=evolucao_unidade, x="Ano-Mês", y="Valor Unitário", hue="Unidade da Clínica", marker="o", ax=ax_ev4)
-ax_ev4.set_ylabel("Faturamento (R$)")
-ax_ev4.set_xlabel("Mês")
-ax_ev4.set_title("Evolução do Faturamento por Unidade")
-st.pyplot(fig_ev4)
-
-# ====== Alertas de Crescimento ou Queda ======
-st.subheader("🚨 Alertas de Tendência (últimos 2 meses)")
-
-# Últimos dois meses disponíveis
-ultimos_meses = evolucao_total.sort_values(by="Ano-Mês").tail(2)
-
-if len(ultimos_meses) == 2:
-    val_1 = ultimos_meses.iloc[0]["Valor Unitário"]
-    val_2 = ultimos_meses.iloc[1]["Valor Unitário"]
-    delta = val_2 - val_1
-    perc = (delta / val_1 * 100) if val_1 > 0 else 0
-
-    if perc >= 10:
-        st.success(f"📈 Crescimento de {perc:.1f}% no faturamento em relação ao mês anterior.")
-    elif perc <= -10:
-        st.error(f"📉 Queda de {abs(perc):.1f}% no faturamento em relação ao mês anterior.")
-    else:
-        st.info(f"⚖️ Estabilidade: variação de {perc:.1f}% no último mês.")
-else:
-    st.warning("Não há dados suficientes para calcular a variação de tendência.")
-
-
