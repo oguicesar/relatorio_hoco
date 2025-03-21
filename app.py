@@ -5,9 +5,11 @@ import seaborn as sns
 import bcrypt
 import os
 
-# =========================
+st.set_page_config("Dashboard HOCO", layout="wide")
+
+# =====================
 USER_FILE = "usuarios.csv"
-# =========================
+# =====================
 
 def carregar_usuarios():
     if os.path.exists(USER_FILE):
@@ -25,15 +27,13 @@ def autenticar(username, senha, df_usuarios):
         return bcrypt.checkpw(senha.encode(), hashed.encode()), user.iloc[0]["name"]
     return False, None
 
-st.set_page_config("Dashboard HOCO", layout="wide")
-
 # === CONTROLE DE SESSÃO
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
+# === TELA DE LOGIN / CADASTRO
 if not st.session_state["logado"]:
     st.title("🔐 Acesso ao Dashboard HOCO")
-
     aba_login, aba_cadastro = st.tabs(["🔑 Já tenho cadastro", "📝 Quero me cadastrar"])
     df_usuarios = carregar_usuarios()
 
@@ -47,9 +47,10 @@ if not st.session_state["logado"]:
                 st.session_state["logado"] = True
                 st.session_state["usuario"] = login_user
                 st.session_state["nome"] = nome
-                st.experimental_rerun()
+                st.success(f"✅ Login realizado com sucesso! Bem-vindo, {nome}.")
+                st.stop()  # Corrige o problema do experimental_rerun
             else:
-                st.error("Usuário ou senha incorretos.")
+                st.error("❌ Usuário ou senha incorretos.")
 
     with aba_cadastro:
         st.subheader("Cadastro")
@@ -68,13 +69,13 @@ if not st.session_state["logado"]:
                 salvar_usuarios(df_usuarios)
                 st.success("✅ Cadastro realizado com sucesso!")
                 st.download_button("⬇ Baixar novo arquivo de usuários", df_usuarios.to_csv(index=False), file_name="usuarios.csv")
+                st.stop()
 
-# === SEÇÃO DO DASHBOARD ===
+# === DASHBOARD ===
 if st.session_state.get("logado"):
     st.sidebar.success(f"👤 Bem-vindo, {st.session_state['nome']}!")
 
     st.title("📊 Dashboard de Faturamento - HOCO")
-
     uploaded_file = st.file_uploader("📂 Upload do arquivo .csv", type=["csv"])
 
     if uploaded_file:
@@ -108,7 +109,6 @@ if st.session_state.get("logado"):
                 (df["Categoria"].isin(planos))
             ]
 
-            # Abas do dashboard
             aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
                 "📊 Visão Geral",
                 "👨‍⚕️ Médicos",
@@ -180,5 +180,4 @@ if st.session_state.get("logado"):
         except Exception as e:
             st.error(f"❌ Erro ao processar o arquivo: {e}")
     else:
-        st.warning("👆 Faça upload de um arquivo .csv com os dados do faturamento.")
-
+        st.info("⬆ Faça upload de um arquivo .csv com os dados de faturamento para começar.")
